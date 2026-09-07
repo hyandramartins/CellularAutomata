@@ -10,7 +10,7 @@ public class MapGenerator : MonoBehaviour
     public GameObject mapContainer;
     public bool viewSteps;
     private int[,] map;
-    private int currentSteps = 0, currentSteps2 = 0;
+    private int currentSteps, currentSteps2;
     [SerializeField] int width, height;
     [SerializeField] private string seed;
     [SerializeField] private bool randomSeed;
@@ -27,14 +27,22 @@ public class MapGenerator : MonoBehaviour
 
     void Start()
     {
-        InitializeMap();
+        currentSteps = -1;
+        currentSteps2 = 0;
     }
 
     void Update()
     {
         if (viewSteps && Keyboard.current.qKey.wasPressedThisFrame)
-        {
-            if (mixRules)
+        {   
+            if (currentSteps == -1)
+            {
+                InitializeMap();
+                DrawMap();
+                currentSteps++;
+                Debug.Log("Initial grid rand value.");
+            }
+            else if (mixRules)
                 AdvanceSteps2();
             else
                 AdvanceSteps();
@@ -44,13 +52,15 @@ public class MapGenerator : MonoBehaviour
         {
             ClearMap();
             CreateMap();
+            currentSteps = 100000000;
+            currentSteps2 = 100000000;
+            Debug.Log("Finish map");
         }
 
         else if (Keyboard.current.rKey.wasPressedThisFrame)
         {
             ClearMap();
-            InitializeMap();
-            currentSteps = 0;
+            currentSteps = -1;
             currentSteps2 = 0;
         }
 
@@ -142,6 +152,8 @@ public class MapGenerator : MonoBehaviour
 
                     if (rules.diamoebaCaves)
                         rules.DiamoebaCaves(newMap, x, y, N, N2, amountWall, true);
+                    else
+                        Debug.Log("No rule selected");
 
                 }
             }
@@ -157,6 +169,8 @@ public class MapGenerator : MonoBehaviour
 
                     if (rules.diamoebaCaves)
                         rules.DiamoebaCaves(newMap, x, y, N, N2, amountWall, false);
+                    else
+                        Debug.Log("No rule selected");
 
                 }
             }
@@ -168,22 +182,13 @@ public class MapGenerator : MonoBehaviour
     {
         if (currentSteps < steps)
         {
-            if (currentSteps == 0)
-            {
-                DrawMap();
-                currentSteps++;
-                Debug.Log("Step: " + currentSteps);
-            }
-            else
-            {
-                ClearMap();
-                ExecuteRules();
+            ClearMap();
+            ExecuteRules();
 
-                DrawMap();
+            DrawMap();
 
-                currentSteps++;
-                Debug.Log("Step: " + currentSteps);
-            }
+            currentSteps++;
+            Debug.Log("Step: " + currentSteps);
         }
         else
             Debug.Log("completed iterations");
@@ -193,22 +198,13 @@ public class MapGenerator : MonoBehaviour
     {
         if (currentSteps < steps)
         {
-            if (currentSteps == 0)
-            {
-                DrawMap();
-                currentSteps++;
-                Debug.Log("Step: " + currentSteps);
-            }
-            else
-            {
-                ClearMap();
-                ExecuteRules2();
+            ClearMap();
+            ExecuteRules2();
 
-                DrawMap();
+            DrawMap();
 
-                currentSteps++;
-                Debug.Log("Step: " + currentSteps);
-            }
+            currentSteps++;
+            Debug.Log("Step: " + currentSteps);
         }
         else
         {
@@ -245,6 +241,8 @@ public class MapGenerator : MonoBehaviour
 
                         if (rules.diamoebaCaves)
                             rules.DiamoebaCaves(newMap, x, y, N, N2, amountWall, true);
+                        else 
+                            Debug.Log("No rule selected");
 
                     }
                 }
@@ -261,6 +259,8 @@ public class MapGenerator : MonoBehaviour
 
                         if (rules.diamoebaCaves)
                             rules.DiamoebaCaves(newMap, x, y, N, N2, amountWall, false);
+                        else
+                            Debug.Log("No rule selected");
 
                     }
                 }
