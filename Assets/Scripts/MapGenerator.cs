@@ -2,10 +2,16 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
 using UnityEngine.UIElements;
+using Unity.VisualScripting;
 public class MapGenerator : MonoBehaviour
 {
-    [SerializeField] int width, height;
+
+    public GameObject wallPrefab;
+    public GameObject mapContainer;
+    public bool viewSteps;
     private int[,] map;
+    private int currentSteps = 0, currentSteps2 = 0;
+    [SerializeField] int width, height;
     [SerializeField] private string seed;
     [SerializeField] private bool randomSeed;
     [Range(0, 100)]
@@ -13,7 +19,6 @@ public class MapGenerator : MonoBehaviour
     [SerializeField] private int steps, steps2;
     [SerializeField] private int radius, radius2;
     [SerializeField] private int N, N2;
-    public GameObject prefab;
     [SerializeField] private bool percentPerCell;
     [SerializeField] private bool gridToroidal;
     [SerializeField] private bool includeCurrentCell, includeCurrentCell2;
@@ -22,19 +27,33 @@ public class MapGenerator : MonoBehaviour
 
     void Start()
     {
-        //InitializeMap();
-        CreateMap();
-        //Draw();
+        InitializeMap();
     }
 
     void Update()
     {
-        if (Keyboard.current.spaceKey.wasPressedThisFrame)
+        if (viewSteps && Keyboard.current.qKey.wasPressedThisFrame)
         {
-            //InitializeMap();
-            CreateMap();
-            //Draw();
+            if (mixRules)
+                AdvanceSteps2();
+            else
+                AdvanceSteps();
         }
+
+        else if (Keyboard.current.spaceKey.wasPressedThisFrame)
+        {
+            ClearMap();
+            CreateMap();
+        }
+
+        else if (Keyboard.current.rKey.wasPressedThisFrame)
+        {
+            ClearMap();
+            InitializeMap();
+            currentSteps = 0;
+            currentSteps2 = 0;
+        }
+
     }
 
     public void InitializeMap()
@@ -83,6 +102,130 @@ public class MapGenerator : MonoBehaviour
         }
     }
 
+    public void ExecuteRules()
+    {
+        int amountWall;
+        int[,] newMap = (int[,])map.Clone();
+
+
+        for (int x = 0; x <= width - 1; x++)
+        {
+            for (int y = 0; y <= height - 1; y++)
+            {
+                amountWall = CountWalls(x, y);
+
+                if (rules.majority)
+                    rules.Majority(newMap, x, y, N, amountWall);
+                else if (rules.caves)
+                    rules.Caves(newMap, x, y, N, amountWall);
+                else if (rules.diamoeba)
+                    rules.Diamoeba(newMap, x, y, N, amountWall);
+                else
+                    Debug.Log("No rule selected");
+            }
+        }
+        map = (int[,])newMap.Clone();
+    }
+
+    public void ExecuteRules2()
+    {
+        int amountWall;
+        int[,] newMap = (int[,])map.Clone();
+
+        if (currentSteps < steps)
+        {
+            for (int x = 0; x <= width - 1; x++)
+            {
+                for (int y = 0; y <= height - 1; y++)
+                {
+                    amountWall = CountWalls(x, y);
+
+                    if (rules.diamoebaCaves)
+                        rules.DiamoebaCaves(newMap, x, y, N, N2, amountWall, true);
+
+                }
+            }
+            map = (int[,])newMap.Clone();
+        }
+        else
+        {
+            for (int x = 0; x <= width - 1; x++)
+            {
+                for (int y = 0; y <= height - 1; y++)
+                {
+                    amountWall = CountWalls2(x, y);
+
+                    if (rules.diamoebaCaves)
+                        rules.DiamoebaCaves(newMap, x, y, N, N2, amountWall, false);
+
+                }
+            }
+            map = (int[,])newMap.Clone();
+        }
+    }
+
+    public void AdvanceSteps()
+    {
+        if (currentSteps < steps)
+        {
+            if (currentSteps == 0)
+            {
+                DrawMap();
+                currentSteps++;
+                Debug.Log("Step: " + currentSteps);
+            }
+            else
+            {
+                ClearMap();
+                ExecuteRules();
+
+                DrawMap();
+
+                currentSteps++;
+                Debug.Log("Step: " + currentSteps);
+            }
+        }
+        else
+            Debug.Log("completed iterations");
+    }
+
+    public void AdvanceSteps2()
+    {
+        if (currentSteps < steps)
+        {
+            if (currentSteps == 0)
+            {
+                DrawMap();
+                currentSteps++;
+                Debug.Log("Step: " + currentSteps);
+            }
+            else
+            {
+                ClearMap();
+                ExecuteRules2();
+
+                DrawMap();
+
+                currentSteps++;
+                Debug.Log("Step: " + currentSteps);
+            }
+        }
+        else
+        {
+            if (currentSteps2 < steps2)
+            {
+                ClearMap();
+                ExecuteRules2();
+
+                DrawMap();
+
+                currentSteps2++;
+                Debug.Log("Step: " + currentSteps);
+            }
+            else
+                Debug.Log("completed iterations");
+        }
+    }
     public void CreateMap()
     {
         InitializeMap();
@@ -148,6 +291,7 @@ public class MapGenerator : MonoBehaviour
                 map = (int[,])newMap.Clone();
             }
         }
+        DrawMap();
     }
 
     public int CountWalls(int x, int y)
@@ -252,6 +396,7 @@ public class MapGenerator : MonoBehaviour
         return amount;
     }
 
+    /*
     private void OnDrawGizmos()
     {
         if (map != null)
@@ -267,8 +412,8 @@ public class MapGenerator : MonoBehaviour
             }
         }
     }
-
-    private void Draw()
+    */
+    private void DrawMap()
     {
         if (map != null)
         {
@@ -277,14 +422,24 @@ public class MapGenerator : MonoBehaviour
                 for (int y = 0; y <= height - 1; y++)
                 {
                     //transform.position = new Vector3(x - width/2 + .5f, y - height/2 + .5f, 0);
-                    Vector3 pos = new Vector3(x - width / 2 + .5f, y - height / 2 + .5f, 0);
+                    Vector3 position = new Vector3(x - width / 2 + .5f, y - height / 2 + .5f, 0);
                     if (map[x, y] == 1)
                     {
-                        Instantiate(prefab, pos, Quaternion.identity);
+                        GameObject tile = Instantiate(wallPrefab, position, Quaternion.identity);
+                        tile.transform.SetParent(mapContainer.transform, true);
+
                     }
 
                 }
             }
+        }
+    }
+
+    private void ClearMap()
+    {
+        foreach (Transform child in mapContainer.transform)
+        {
+            Destroy(child.gameObject);
         }
     }
 }
