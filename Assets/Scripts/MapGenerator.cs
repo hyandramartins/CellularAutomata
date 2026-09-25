@@ -23,6 +23,7 @@ public class MapGenerator : MonoBehaviour
     [SerializeField] private bool gridToroidal;
     [SerializeField] private bool includeCurrentCell, includeCurrentCell2;
     [SerializeField] private Rules rules;
+    [SerializeField] private Metrics metrics;
     [SerializeField] private bool mixRules;
 
     void Start()
@@ -34,7 +35,7 @@ public class MapGenerator : MonoBehaviour
     void Update()
     {
         if (viewSteps && Keyboard.current.qKey.wasPressedThisFrame)
-        {   
+        {
             if (currentSteps == -1)
             {
                 InitializeMap();
@@ -54,7 +55,11 @@ public class MapGenerator : MonoBehaviour
             CreateMap();
             currentSteps = 100000000;
             currentSteps2 = 100000000;
-            Debug.Log("Finish map");
+            Debug.Log("Finish map\n");
+
+            metrics.FloodFill(map, width, height);
+            metrics.AmountEdges(map, width,height);
+            metrics.Complexy();
         }
 
         else if (Keyboard.current.rKey.wasPressedThisFrame)
@@ -241,7 +246,7 @@ public class MapGenerator : MonoBehaviour
 
                         if (rules.diamoebaCaves)
                             rules.DiamoebaCaves(newMap, x, y, N, N2, amountWall, true);
-                        else 
+                        else
                             Debug.Log("No rule selected");
 
                     }
@@ -291,7 +296,7 @@ public class MapGenerator : MonoBehaviour
                 map = (int[,])newMap.Clone();
             }
         }
-        DrawMap();
+        //DrawMap();
     }
 
     public int CountWalls(int x, int y)
@@ -396,7 +401,7 @@ public class MapGenerator : MonoBehaviour
         return amount;
     }
 
-    /*
+
     private void OnDrawGizmos()
     {
         if (map != null)
@@ -405,14 +410,33 @@ public class MapGenerator : MonoBehaviour
             {
                 for (int y = 0; y <= height - 1; y++)
                 {
-                    Gizmos.color = map[x, y] == 1 ? Color.black : Color.white;
+                    //Gizmos.color = map[x, y] == 1 ? Color.black : Color.white;
+                    switch (map[x, y])
+                    {
+                        case 0:
+                            Gizmos.color = Color.white;
+                            break;
+                        case 1:
+                            Gizmos.color = Color.black;
+                            break;
+                        case 2:
+                            Gizmos.color = Color.red;
+                            break;
+                        case 3:
+                            Gizmos.color = Color.green;
+                            break;
+                        default:
+                            Gizmos.color = Color.yellow;
+                            break;
+                    }
+
                     Vector3 pos = new Vector3(x - width / 2 + .5f, y - height / 2 + .5f, 0);
                     Gizmos.DrawCube(pos, Vector3.one);
                 }
             }
         }
     }
-    */
+
     private void DrawMap()
     {
         if (map != null)
