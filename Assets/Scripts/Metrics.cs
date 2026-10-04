@@ -83,10 +83,10 @@ public class Metrics : MonoBehaviour
             }
         }
 
-        /*foreach (var edge in edges)
+        foreach (var edge in edges)
         {
             grid[edge.x, edge.y] = 2;
-        }*/
+        }
 
         foreach (var p in perimeter)
         {
@@ -166,11 +166,6 @@ public class Metrics : MonoBehaviour
             totalCellsGround += regions[i].Count;
             Debug.Log($"Region {i}, number of cells : {cellsAmount[i]}\n");
         }
-
-        /*foreach (var edge in edges)
-        {
-            grid[edge.x, edge.y] = 2;
-        }*/
 
         int largestRegion = 0;
         int indexLargestRegion = 0;
