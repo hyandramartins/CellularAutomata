@@ -9,8 +9,8 @@ public class MapGenerator : MonoBehaviour
     public GameObject wallPrefab;
     public GameObject mapContainer;
     public bool viewSteps;
-    //private int[,] map;
     private int currentSteps, currentSteps2;
+    //private int[,] map;
     // [SerializeField] int width, height;
     // [SerializeField] private string seed;
     // [SerializeField] private bool randomSeed;
@@ -25,7 +25,6 @@ public class MapGenerator : MonoBehaviour
     // [SerializeField] private Rules rules;
     // [SerializeField] private Metrics metrics;
     // [SerializeField] private bool mixRules;
-
     
     public int width, height;
     public string seed;
