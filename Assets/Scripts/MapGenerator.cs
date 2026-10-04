@@ -9,22 +9,39 @@ public class MapGenerator : MonoBehaviour
     public GameObject wallPrefab;
     public GameObject mapContainer;
     public bool viewSteps;
-    private int[,] map;
+    //private int[,] map;
     private int currentSteps, currentSteps2;
-    [SerializeField] int width, height;
-    [SerializeField] private string seed;
-    [SerializeField] private bool randomSeed;
+    // [SerializeField] int width, height;
+    // [SerializeField] private string seed;
+    // [SerializeField] private bool randomSeed;
+    // [Range(0, 100)]
+    // [SerializeField] private int percentFill;
+    // [SerializeField] private int steps, steps2;
+    // [SerializeField] private int radius, radius2;
+    // [SerializeField] private int N, N2;
+    // [SerializeField] private bool percentPerCell;
+    // [SerializeField] private bool gridToroidal;
+    // [SerializeField] private bool includeCurrentCell, includeCurrentCell2;
+    // [SerializeField] private Rules rules;
+    // [SerializeField] private Metrics metrics;
+    // [SerializeField] private bool mixRules;
+
+    
+    public int width, height;
+    public string seed;
+    public bool randomSeed;
     [Range(0, 100)]
-    [SerializeField] private int percentFill;
-    [SerializeField] private int steps, steps2;
-    [SerializeField] private int radius, radius2;
-    [SerializeField] private int N, N2;
-    [SerializeField] private bool percentPerCell;
+    public int percentFill;
+    public int steps, steps2;
+    public int radius, radius2;
+    public int N, N2;
+    public bool percentPerCell;
     [SerializeField] private bool gridToroidal;
     [SerializeField] private bool includeCurrentCell, includeCurrentCell2;
-    [SerializeField] private Rules rules;
-    [SerializeField] private Metrics metrics;
-    [SerializeField] private bool mixRules;
+    public Rules rules;
+    public Metrics metrics;
+    public bool mixRules;
+    public int[,] map;
 
     void Start()
     {
@@ -53,6 +70,7 @@ public class MapGenerator : MonoBehaviour
         {
             ClearMap();
             CreateMap();
+            DrawMap();
             currentSteps = 100000000;
             currentSteps2 = 100000000;
             Debug.Log("Finish map\n");
@@ -67,6 +85,7 @@ public class MapGenerator : MonoBehaviour
             ClearMap();
             currentSteps = -1;
             currentSteps2 = 0;
+            Debug.Log("Reset map\n");
         }
 
     }
@@ -437,7 +456,7 @@ public class MapGenerator : MonoBehaviour
         }
     }
 
-    private void DrawMap()
+    public void DrawMap()
     {
         if (map != null)
         {
@@ -459,7 +478,7 @@ public class MapGenerator : MonoBehaviour
         }
     }
 
-    private void ClearMap()
+    public void ClearMap()
     {
         foreach (Transform child in mapContainer.transform)
         {
