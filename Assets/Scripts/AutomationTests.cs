@@ -1,13 +1,26 @@
 using UnityEngine;
 using System.Collections;
+using System.IO;
+using System.Globalization;
 
 public class AutomationTests : MonoBehaviour
 {
     public TextAsset configurationsFile;
-    [SerializeField] private MapGenerator mapGenerator;
+    public string path;
+    private MapGenerator mapGenerator;
+    private Metrics metrics;
+    private Rules rules;
 
+    //public Camera cam;
     void Start()
     {
+        mapGenerator = MapGenerator.Instance;
+        metrics = Metrics.Instance;
+        rules = Rules.Instance;
+
+        path = "Assets/Results/metrics.csv";
+        File.WriteAllText(path, "id,ConnectivityScore,Openness/NarrownessScore,ComplexyScore\n");
+
         StartCoroutine(ReadConfigurations());
     }
 
@@ -49,34 +62,45 @@ public class AutomationTests : MonoBehaviour
             bool diamoeba = bool.Parse(values[15]);
             bool diamoebaCaves = bool.Parse(values[16]);
 
-            mapGenerator.width = width;
-            mapGenerator.height = height;
-            mapGenerator.randomSeed = randomSeed;
-            mapGenerator.seed = seed;
-            mapGenerator.percentFill = percentFill;
-            mapGenerator.steps = steps;
-            mapGenerator.steps2 = steps2;
-            mapGenerator.radius = radius;
-            mapGenerator.radius2 = radius2;
-            mapGenerator.N = N;
-            mapGenerator.N2 = N2;
-            mapGenerator.mixRules = mixRules;
-            mapGenerator.rules.majority = majority;
-            mapGenerator.rules.caves = caves;
-            mapGenerator.rules.diamoeba = diamoeba;
-            mapGenerator.rules.diamoebaCaves = diamoebaCaves;
+            mapGenerator.mapConfig.width = width;
+            mapGenerator.mapConfig.height = height;
+            mapGenerator.mapConfig.randomSeed = randomSeed;
+            mapGenerator.mapConfig.seed = seed;
+            mapGenerator.mapConfig.percentFill = percentFill;
+            mapGenerator.mapConfig.steps = steps;
+            mapGenerator.mapConfig.steps2 = steps2;
+            mapGenerator.mapConfig.radius = radius;
+            mapGenerator.mapConfig.radius2 = radius2;
+            mapGenerator.mapConfig.N = N;
+            mapGenerator.mapConfig.N2 = N2;
+            mapGenerator.mapConfig.mixRules = mixRules;
+            rules.majority = majority;
+            rules.caves = caves;
+            rules.diamoeba = diamoeba;
+            rules.diamoebaCaves = diamoebaCaves;
 
             mapGenerator.ClearMap();
             mapGenerator.CreateMap();
             mapGenerator.DrawMap();
-        
-            mapGenerator.metrics.FloodFill(mapGenerator.map, mapGenerator.width, mapGenerator.height);
-            mapGenerator.metrics.AmountEdges(mapGenerator.map, mapGenerator.width, mapGenerator.height);
-            mapGenerator.metrics.Complexy();
+
+            // mapGenerator.metrics.ConnectivityMetric(mapGenerator.map, mapGenerator.width, mapGenerator.height);
+            // mapGenerator.metrics.OpennessMetric(mapGenerator.map, mapGenerator.width, mapGenerator.height);
+            // mapGenerator.metrics.ComplexyMetric();
+
+            metrics.ConnectivityMetric(mapGenerator.map, mapGenerator.mapConfig.width, mapGenerator.mapConfig.height);
+            metrics.OpennessMetric(mapGenerator.map, mapGenerator.mapConfig.width, mapGenerator.mapConfig.height);
+            metrics.ComplexyMetric();
 
             yield return new WaitForEndOfFrame();
-            
-            ScreenCapture.CaptureScreenshot($"Assets/Results/Map_{id}.png");
+
+            string pathImage = $"Assets/Results/Map_{id}.png";
+
+            SaveImageMap(mapGenerator.map, width, height, pathImage);
+            //ScreenCapture.CaptureScreenshot($"Assets/Results/Map_{id}.png");
+
+            //string text = string.Format(CultureInfo.InvariantCulture, "{0},{1},{2},{3}\n", id, mapGenerator.metrics.connectivityScore, mapGenerator.metrics.opennessScore, mapGenerator.metrics.complexyScore);
+            string text = string.Format(CultureInfo.InvariantCulture,"{0},{1},{2},{3}\n", id, metrics.connectivityScore, metrics.opennessScore, metrics.complexyScore);
+            File.AppendAllText(path, text);
 
             Debug.Log(
                 $"ID {id}\n" +
@@ -98,5 +122,41 @@ public class AutomationTests : MonoBehaviour
                 $"Diamoeba Caves: {diamoebaCaves}"
             );
         }
+    }
+
+    private void SaveImageMap(int[,] map, int width, int height, string pathImage)
+    {
+        Texture2D texture = new Texture2D(width, height);
+
+        for (int x = 0; x <= width - 1; x++)
+        {
+            for (int y = 0; y <= height - 1; y++)
+            {
+                Color color;
+                switch (map[x, y])
+                {
+                    case 0:
+                        color = Color.white;
+                        break;
+                    case 1:
+                        color = Color.black;
+                        break;
+                    case 2:
+                        color = Color.white;
+                        break;
+                    case 3:
+                        color = Color.black;
+                        break;
+                    default:
+                        color = Color.yellow;
+                        break;
+                }
+                texture.SetPixel(x, y, color);
+            }
+        }
+        texture.Apply();
+        byte[] bytes = texture.EncodeToPNG();
+
+        File.WriteAllBytes(pathImage, bytes);
     }
 }
