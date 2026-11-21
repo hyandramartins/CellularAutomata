@@ -9,9 +9,25 @@ using UnityEngine.Rendering;
 
 public class Metrics : MonoBehaviour
 {
-    public int totalCellsGround;
-    public int totalPerimeter;
+    public static Metrics Instance { get; private set; }
 
+    public int totalCellsGround;
+    public int totalCellsPerimeter;
+    public int totalCellsEdges;
+    public double connectivityScore;
+    public double complexyScore;
+    public double opennessScore;
+
+    private List<(int x, int y)> edges;
+    private List<(int x, int y)> perimeter;
+    private List<List<(int x, int y)>> regions;
+    private List<List<(int x, int y)>> regionsDwarf;
+
+    void Awake()
+    {
+        if(Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
     public List<(int x, int y)> BFS(int[,] grid, int x, int y, int width, int height, bool[,] visited)
     {
         List<(int x, int y)> region = new List<(int x, int y)>();
@@ -19,6 +35,8 @@ public class Metrics : MonoBehaviour
         Queue<(int x, int y)> Q = new Queue<(int x, int y)>();
 
         Q.Enqueue((x, y));
+        visited[x, y] = true;
+        region.Add((x, y));
 
         while (Q.Count > 0)
         {
@@ -43,106 +61,15 @@ public class Metrics : MonoBehaviour
                         Q.Enqueue((neighborX, neighborY));
                         region.Add((neighborX, neighborY));
                     }
-                    /*else if (grid[neighborX, neighborY] == 1)
-                    {
-                        if (!edges.Contains((currentX, currentY)))
-                            edges.Add((currentX, currentY));
-                    }*/
                 }
             }
         }
         return region;
     }
 
-    public void AmountEdges(int[,] grid, int width, int height)
-    {
-        totalPerimeter = 0;
-
-        List<(int x, int y)> edges = new List<(int x, int y)>();
-        List<(int x, int y)> perimeter = new List<(int x, int y)>();
-
-        for (int x = 0; x <= width - 1; x++)
-        {
-            for (int y = 0; y <= height - 1; y++)
-            {
-                if (grid[x, y] == 0)
-                {
-                    if (isEdge(grid, x, y, width, height))
-                    {
-                        edges.Add((x, y));
-                    }
-                }
-                else if (grid[x, y] == 1)
-                {
-                    if (isPerimeter(grid, x, y, width, height))
-                    {
-                        perimeter.Add((x, y));
-                        totalPerimeter++;
-                    }
-                }
-            }
-        }
-
-        foreach (var edge in edges)
-        {
-            grid[edge.x, edge.y] = 2;
-        }
-
-        foreach (var p in perimeter)
-        {
-            grid[p.x, p.y] = 3;
-        }
-
-        int greaterOne = totalCellsGround - edges.Count;
-
-        Double magnitudeScore = (Double)greaterOne / totalCellsGround;
-        Debug.Log($"Openness/Narrowness Score: {magnitudeScore}, Cells of ground > 1: {greaterOne}, total: {totalCellsGround}\n");
-        Debug.Log($"Total Perimeter: {totalPerimeter}");
-    }
-
-    public bool isEdge(int[,] grid, int x, int y, int width, int height)
-    {
-        for (int dx = -1; dx <= 1; dx++)
-        {
-            for (int dy = -1; dy <= 1; dy++)
-            {
-                if (dx == 0 && dy == 0) continue;
-
-                int neighborX = x + dx;
-                int neighborY = y + dy;
-
-                if (neighborX < 0 || neighborX >= width || neighborY < 0 || neighborY >= height)
-                    return true;
-
-                if (grid[neighborX, neighborY] == 1) return true;
-            }
-        }
-        return false;
-    }
-
-    public bool isPerimeter(int[,] grid, int x, int y, int width, int height)
-    {
-        for (int dx = -1; dx <= 1; dx++)
-        {
-            for (int dy = -1; dy <= 1; dy++)
-            {
-                if (dx == 0 && dy == 0) continue;
-
-                int neighborX = x + dx;
-                int neighborY = y + dy;
-
-                if (neighborX >= 0 && neighborX < width && neighborY >= 0 && neighborY < height)
-                {
-                    if (grid[neighborX, neighborY] == 0) return true;
-                }
-            }
-        }
-        return false;
-    }
     public void FloodFill(int[,] grid, int width, int height)
     {
-        List<List<(int x, int y)>> regions = new List<List<(int x, int y)>>();
-        //List<(int x, int y)> edges = new List<(int x, int y)>();
+        regions = new List<List<(int x, int y)>>();
 
         bool[,] visited = new bool[width, height];
 
@@ -154,17 +81,22 @@ public class Metrics : MonoBehaviour
                     regions.Add(BFS(grid, x, y, width, height, visited));
             }
         }
+    }
+
+    public void ConnectivityMetric(int[,] grid, int width, int height)
+    {
+
+        FloodFill(grid, width, height);
 
         Debug.Log($"Amount of regions: {regions.Count}\n");
 
-        int[] cellsAmount = new int[regions.Count];
         totalCellsGround = 0;
 
         for (int i = 0; i <= regions.Count - 1; i++)
         {
-            cellsAmount[i] = regions[i].Count;
             totalCellsGround += regions[i].Count;
-            Debug.Log($"Region {i}, number of cells : {cellsAmount[i]}\n");
+
+            Debug.Log($"Region {i}, number of cells : {regions[i].Count}\n");
         }
 
         int largestRegion = 0;
@@ -183,30 +115,147 @@ public class Metrics : MonoBehaviour
 
         int validRegion = 0;
 
-        float dwarfCaves = largestRegion * 0.2f;
-        Debug.Log($"Dwarf Caves: {dwarfCaves}");
+        float dwarfCavesThreshold = largestRegion * 0.2f;
+        Debug.Log($"Dwarf Caves Threshold: {dwarfCavesThreshold}");
+
+        regionsDwarf = new List<List<(int x, int y)>>();
 
         for (int i = 0; i <= regions.Count - 1; i++)
         {
-            if (regions[i].Count > dwarfCaves)
+            if (regions[i].Count > dwarfCavesThreshold)
             {
                 validRegion++;
+
+                //totalCellsGround += regions[i].Count;
+
                 Debug.Log($"Index valid regions: {i}");
+            }
+            else
+            {
+                regionsDwarf.Add(regions[i]);
             }
         }
 
-        var connectivityScore = 1 / Math.Pow(2, validRegion - 1);
+        connectivityScore = 1 / Math.Pow(2, validRegion - 1);
         Debug.Log($"Connectivity Score: {connectivityScore}");
     }
 
-    public void Complexy()
+    public void OpennessMetric(int[,] grid, int width, int height)
+    {
+        totalCellsPerimeter = 0;
+        totalCellsEdges = 0;
+
+        edges = new List<(int x, int y)>();
+        perimeter = new List<(int x, int y)>();
+
+        for (int x = 0; x <= width - 1; x++)
+        {
+            for (int y = 0; y <= height - 1; y++)
+            {
+                if (grid[x, y] == 0)
+                {
+                    if (IsEdge(grid, x, y, width, height))
+                    {
+                        edges.Add((x, y));
+                        totalCellsEdges++;
+                    }
+                }
+                else if (grid[x, y] == 1)
+                {
+                    if (IsPerimeter(grid, x, y, width, height))
+                    {
+                        perimeter.Add((x, y));
+                        totalCellsPerimeter++;
+                    }
+                }
+            }
+        }
+
+        foreach (var edge in edges)
+        {
+            grid[edge.x, edge.y] = 2;
+        }
+
+        foreach (var p in perimeter)
+        {
+            grid[p.x, p.y] = 3;
+        }
+
+        int greaterOne = totalCellsGround - totalCellsEdges;
+        
+        opennessScore = (Double)greaterOne / totalCellsGround;
+        Debug.Log($"Openness/Narrowness Score: {opennessScore}, Amount cells of ground > 1: {greaterOne}, total cell of ground: {totalCellsGround}\n");
+
+        Debug.Log($"Total Perimeter: {totalCellsPerimeter}");
+    }
+
+    public bool IsEdge(int[,] grid, int x, int y, int width, int height)
+    {
+        // if(IsDwarfRegion(x, y))
+        // {
+        //     return false;
+        // }
+
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                if (dx == 0 && dy == 0) continue;
+
+                int neighborX = x + dx;
+                int neighborY = y + dy;
+
+                if (neighborX < 0 || neighborX >= width || neighborY < 0 || neighborY >= height)
+                    return true;
+
+                if (grid[neighborX, neighborY] == 1) return true;
+            }
+        }
+        return false;
+    }
+
+    public bool IsPerimeter(int[,] grid, int x, int y, int width, int height)
+    {
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                if (dx == 0 && dy == 0) continue;
+
+                int neighborX = x + dx;
+                int neighborY = y + dy;
+
+                if (neighborX >= 0 && neighborX < width && neighborY >= 0 && neighborY < height)
+                {
+                    //if (grid[neighborX, neighborY] == 0 && !IsDwarfRegion(neighborX, neighborY)) return true;
+                    if (grid[neighborX, neighborY] == 0) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public bool IsDwarfRegion(int x, int y)
+    {
+        foreach (var region in regionsDwarf)
+        {
+            if (region.Contains((x, y)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public void ComplexyMetric()
     {
         double r = Math.Sqrt(totalCellsGround / Math.PI);
 
         double roughnessMax = r / 2.0;
-        double roughnessReal = (double)totalCellsGround/ totalPerimeter;
+        double roughnessReal = (double)totalCellsGround / totalCellsPerimeter;
 
-        double complexyScore = roughnessReal / roughnessMax;
+        complexyScore = 1.0 - (roughnessReal / roughnessMax);
 
         Debug.Log($"Complexy Score: {complexyScore}");
     }
