@@ -5,53 +5,40 @@ using UnityEngine.UIElements;
 using Unity.VisualScripting;
 public class MapGenerator : MonoBehaviour
 {
+    public static MapGenerator Instance { get; private set; }
+
+    public MapConfig mapConfig;
+
+    public int[,] map;
+
+    private int currentSteps, currentSteps2;
+
+    private Metrics metrics;
+    private Rules rules;
 
     public GameObject wallPrefab;
     public GameObject mapContainer;
-    public bool viewSteps;
-    private int currentSteps, currentSteps2;
-    //private int[,] map;
-    // [SerializeField] int width, height;
-    // [SerializeField] private string seed;
-    // [SerializeField] private bool randomSeed;
-    // [Range(0, 100)]
-    // [SerializeField] private int percentFill;
-    // [SerializeField] private int steps, steps2;
-    // [SerializeField] private int radius, radius2;
-    // [SerializeField] private int N, N2;
-    // [SerializeField] private bool percentPerCell;
-    // [SerializeField] private bool gridToroidal;
-    // [SerializeField] private bool includeCurrentCell, includeCurrentCell2;
-    // [SerializeField] private Rules rules;
-    // [SerializeField] private Metrics metrics;
-    // [SerializeField] private bool mixRules;
     
-    public int width, height;
-    public string seed;
-    public bool randomSeed;
-    [Range(0, 100)]
-    public int percentFill;
-    public int steps, steps2;
-    public int radius, radius2;
-    public int N, N2;
-    public bool percentPerCell;
-    [SerializeField] private bool gridToroidal;
-    [SerializeField] private bool includeCurrentCell, includeCurrentCell2;
-    public Rules rules;
-    public Metrics metrics;
-    public bool mixRules;
-    public int[,] map;
+    void Awake()
+    {
+        if(Instance == null) Instance = this;
+        else
+            Destroy(gameObject);
+    }
 
     void Start()
     {
         currentSteps = -1;
         currentSteps2 = 0;
+
+        metrics = Metrics.Instance;
+        rules = Rules.Instance;
     }
 
     void Update()
     {
-        if (viewSteps && Keyboard.current.qKey.wasPressedThisFrame)
-        {
+        if (mapConfig.viewSteps && Keyboard.current.qKey.wasPressedThisFrame)
+        { 
             if (currentSteps == -1)
             {
                 InitializeMap();
@@ -59,7 +46,7 @@ public class MapGenerator : MonoBehaviour
                 currentSteps++;
                 Debug.Log("Initial grid rand value.");
             }
-            else if (mixRules)
+            else if (mapConfig.mixRules)
                 AdvanceSteps2();
             else
                 AdvanceSteps();
@@ -74,9 +61,10 @@ public class MapGenerator : MonoBehaviour
             currentSteps2 = 100000000;
             Debug.Log("Finish map\n");
 
-            metrics.FloodFill(map, width, height);
-            metrics.AmountEdges(map, width,height);
-            metrics.Complexy();
+            metrics.ConnectivityMetric(map, mapConfig.width, mapConfig.height);
+            metrics.OpennessMetric(map, mapConfig.width, mapConfig.height);
+            metrics.ComplexyMetric();
+
         }
 
         else if (Keyboard.current.rKey.wasPressedThisFrame)
@@ -91,68 +79,70 @@ public class MapGenerator : MonoBehaviour
 
     public void InitializeMap()
     {
-        map = new int[width, height];
+        map = new int[mapConfig.width, mapConfig.height];
 
-        if (randomSeed)
+        if (mapConfig.randomSeed)
         {
-            seed = System.DateTime.Now.Ticks.ToString();
+            mapConfig.seed = System.DateTime.Now.Ticks.ToString();
         }
 
-        System.Random r = new System.Random(seed.GetHashCode());
-        Debug.Log(seed);
+        System.Random r = new System.Random(mapConfig.seed.GetHashCode());
+        Debug.Log(mapConfig.seed);
 
-        if (percentPerCell)
+        if (mapConfig.percentPerCell)
         {
-            for (int x = 0; x <= width - 1; x++)
+            for (int x = 0; x <= mapConfig.width - 1; x++)
             {
-                for (int y = 0; y <= height - 1; y++)
+                for (int y = 0; y <= mapConfig.height - 1; y++)
                 {
-                    map[x, y] = r.Next(0, 100) < percentFill ? 1 : 0;
+                    map[x, y] = r.Next(0, 100) < mapConfig.percentFill ? 1 : 0;
                 }
             }
         }
         else
         {
-            List<(int, int)> positions = new List<(int, int)>();
+            List<(int x, int y)> positions = new List<(int x, int y)>();
             int px, py;
-            int amount = (int)(width * height * (percentFill / 100.00));
-            for (int i = 0; i < amount; i++)
+
+            int targetFilledCells = (int)(mapConfig.width * mapConfig.height * (mapConfig.percentFill / 100.00));
+
+            for (int i = 0; i < targetFilledCells; i++)
             {
                 do
                 {
-                    px = r.Next(0, width);
-                    py = r.Next(0, height);
+                    px = r.Next(0, mapConfig.width);
+                    py = r.Next(0, mapConfig.height);
                 }
                 while (positions.Contains((px, py)));
 
                 positions.Add((px, py));
             }
 
-            foreach (var p in positions)
+            foreach (var position in positions)
             {
-                map[p.Item1, p.Item2] = 1;
+                map[position.x, position.y] = 1;
             }
         }
     }
 
     public void ExecuteRules()
     {
-        int amountWall;
+        int wallCellsCount;
         int[,] newMap = (int[,])map.Clone();
 
 
-        for (int x = 0; x <= width - 1; x++)
+        for (int x = 0; x <= mapConfig.width - 1; x++)
         {
-            for (int y = 0; y <= height - 1; y++)
+            for (int y = 0; y <= mapConfig.height - 1; y++)
             {
-                amountWall = CountWalls(x, y);
+                wallCellsCount = CountWalls(x, y);
 
                 if (rules.majority)
-                    rules.Majority(newMap, x, y, N, amountWall);
+                    rules.Majority(newMap, x, y, mapConfig.N, wallCellsCount);
                 else if (rules.caves)
-                    rules.Caves(newMap, x, y, N, amountWall);
+                    rules.Caves(newMap, x, y, mapConfig.N, wallCellsCount);
                 else if (rules.diamoeba)
-                    rules.Diamoeba(newMap, x, y, N, amountWall);
+                    rules.Diamoeba(newMap, x, y, mapConfig.N, wallCellsCount);
                 else
                     Debug.Log("No rule selected");
             }
@@ -162,19 +152,19 @@ public class MapGenerator : MonoBehaviour
 
     public void ExecuteRules2()
     {
-        int amountWall;
+        int wallCellsCount;
         int[,] newMap = (int[,])map.Clone();
 
-        if (currentSteps < steps)
+        if (currentSteps < mapConfig.steps)
         {
-            for (int x = 0; x <= width - 1; x++)
+            for (int x = 0; x <= mapConfig.width - 1; x++)
             {
-                for (int y = 0; y <= height - 1; y++)
+                for (int y = 0; y <= mapConfig.height - 1; y++)
                 {
-                    amountWall = CountWalls(x, y);
+                    wallCellsCount = CountWalls(x, y);
 
                     if (rules.diamoebaCaves)
-                        rules.DiamoebaCaves(newMap, x, y, N, N2, amountWall, true);
+                        rules.DiamoebaCaves(newMap, x, y, mapConfig.N, mapConfig.N2, wallCellsCount, true);
                     else
                         Debug.Log("No rule selected");
 
@@ -184,14 +174,14 @@ public class MapGenerator : MonoBehaviour
         }
         else
         {
-            for (int x = 0; x <= width - 1; x++)
+            for (int x = 0; x <= mapConfig.width - 1; x++)
             {
-                for (int y = 0; y <= height - 1; y++)
+                for (int y = 0; y <= mapConfig.height - 1; y++)
                 {
-                    amountWall = CountWalls2(x, y);
+                    wallCellsCount = CountWalls2(x, y);
 
                     if (rules.diamoebaCaves)
-                        rules.DiamoebaCaves(newMap, x, y, N, N2, amountWall, false);
+                        rules.DiamoebaCaves(newMap, x, y, mapConfig.N, mapConfig.N2, wallCellsCount, false);
                     else
                         Debug.Log("No rule selected");
 
@@ -203,7 +193,7 @@ public class MapGenerator : MonoBehaviour
 
     public void AdvanceSteps()
     {
-        if (currentSteps < steps)
+        if (currentSteps < mapConfig.steps)
         {
             ClearMap();
             ExecuteRules();
@@ -219,7 +209,7 @@ public class MapGenerator : MonoBehaviour
 
     public void AdvanceSteps2()
     {
-        if (currentSteps < steps)
+        if (currentSteps < mapConfig.steps)
         {
             ClearMap();
             ExecuteRules2();
@@ -231,7 +221,7 @@ public class MapGenerator : MonoBehaviour
         }
         else
         {
-            if (currentSteps2 < steps2)
+            if (currentSteps2 < mapConfig.steps2)
             {
                 ClearMap();
                 ExecuteRules2();
@@ -249,21 +239,21 @@ public class MapGenerator : MonoBehaviour
     {
         InitializeMap();
 
-        int amountWall;
+        int wallCellsCount;
         int[,] newMap = (int[,])map.Clone();
 
-        if (mixRules)
+        if (mapConfig.mixRules)
         {
-            for (int i = 0; i <= steps - 1; i++)
+            for (int i = 0; i <= mapConfig.steps - 1; i++)
             {
-                for (int x = 0; x <= width - 1; x++)
+                for (int x = 0; x <= mapConfig.width - 1; x++)
                 {
-                    for (int y = 0; y <= height - 1; y++)
+                    for (int y = 0; y <= mapConfig.height - 1; y++)
                     {
-                        amountWall = CountWalls(x, y);
+                        wallCellsCount = CountWalls(x, y);
 
                         if (rules.diamoebaCaves)
-                            rules.DiamoebaCaves(newMap, x, y, N, N2, amountWall, true);
+                            rules.DiamoebaCaves(newMap, x, y, mapConfig.N, mapConfig.N2, wallCellsCount, true);
                         else
                             Debug.Log("No rule selected");
 
@@ -272,16 +262,16 @@ public class MapGenerator : MonoBehaviour
                 map = (int[,])newMap.Clone();
             }
 
-            for (int i = 0; i <= steps2 - 1; i++)
+            for (int i = 0; i <= mapConfig.steps2 - 1; i++)
             {
-                for (int x = 0; x <= width - 1; x++)
+                for (int x = 0; x <= mapConfig.width - 1; x++)
                 {
-                    for (int y = 0; y <= height - 1; y++)
+                    for (int y = 0; y <= mapConfig.height - 1; y++)
                     {
-                        amountWall = CountWalls2(x, y);
+                        wallCellsCount = CountWalls2(x, y);
 
                         if (rules.diamoebaCaves)
-                            rules.DiamoebaCaves(newMap, x, y, N, N2, amountWall, false);
+                            rules.DiamoebaCaves(newMap, x, y, mapConfig.N, mapConfig.N2, wallCellsCount, false);
                         else
                             Debug.Log("No rule selected");
 
@@ -293,20 +283,20 @@ public class MapGenerator : MonoBehaviour
 
         else
         {
-            for (int i = 0; i <= steps - 1; i++)
+            for (int i = 0; i <= mapConfig.steps - 1; i++)
             {
-                for (int x = 0; x <= width - 1; x++)
+                for (int x = 0; x <= mapConfig.width - 1; x++)
                 {
-                    for (int y = 0; y <= height - 1; y++)
+                    for (int y = 0; y <= mapConfig.height - 1; y++)
                     {
-                        amountWall = CountWalls(x, y);
+                        wallCellsCount = CountWalls(x, y);
 
                         if (rules.majority)
-                            rules.Majority(newMap, x, y, N, amountWall);
+                            rules.Majority(newMap, x, y, mapConfig.N, wallCellsCount);
                         else if (rules.caves)
-                            rules.Caves(newMap, x, y, N, amountWall);
+                            rules.Caves(newMap, x, y, mapConfig.N, wallCellsCount);
                         else if (rules.diamoeba)
-                            rules.Diamoeba(newMap, x, y, N, amountWall);
+                            rules.Diamoeba(newMap, x, y, mapConfig.N, wallCellsCount);
                         else
                             Debug.Log("No rule selected");
                     }
@@ -321,16 +311,16 @@ public class MapGenerator : MonoBehaviour
     {
         int amount = 0;
 
-        if (gridToroidal)
+        if (mapConfig.gridToroidal)
         {
-            for (int dirX = x - radius; dirX <= x + radius; dirX++)
+            for (int dirX = x - mapConfig.radius; dirX <= x + mapConfig.radius; dirX++)
             {
-                for (int dirY = y - radius; dirY <= y + radius; dirY++)
+                for (int dirY = y - mapConfig.radius; dirY <= y + mapConfig.radius; dirY++)
                 {
-                    int px = (dirX + width) % width;
-                    int py = (dirY + height) % height;
+                    int px = (dirX + mapConfig.width) % mapConfig.width;
+                    int py = (dirY + mapConfig.height) % mapConfig.height;
 
-                    if (dirX == x && dirY == y && !includeCurrentCell)
+                    if (dirX == x && dirY == y && !mapConfig.includeCurrentCell)
                     {
                         continue;
                     }
@@ -344,16 +334,16 @@ public class MapGenerator : MonoBehaviour
 
         else
         {
-            for (int dirX = x - radius; dirX <= x + radius; dirX++)
+            for (int dirX = x - mapConfig.radius; dirX <= x + mapConfig.radius; dirX++)
             {
-                for (int dirY = y - radius; dirY <= y + radius; dirY++)
+                for (int dirY = y - mapConfig.radius; dirY <= y + mapConfig.radius; dirY++)
                 {
-                    if (dirX < 0 || dirX >= width || dirY < 0 || dirY >= height)
+                    if (dirX < 0 || dirX >= mapConfig.width || dirY < 0 || dirY >= mapConfig.height)
                     {
                         amount++;
                         continue;
                     }
-                    if (dirX == x && dirY == y && !includeCurrentCell)
+                    if (dirX == x && dirY == y && !mapConfig.includeCurrentCell)
                     {
                         continue;
                     }
@@ -372,16 +362,16 @@ public class MapGenerator : MonoBehaviour
     {
         int amount = 0;
 
-        if (gridToroidal)
+        if (mapConfig.gridToroidal)
         {
-            for (int dirX = x - radius2; dirX <= x + radius2; dirX++)
+            for (int dirX = x - mapConfig.radius2; dirX <= x + mapConfig.radius2; dirX++)
             {
-                for (int dirY = y - radius2; dirY <= y + radius2; dirY++)
+                for (int dirY = y - mapConfig.radius2; dirY <= y + mapConfig.radius2; dirY++)
                 {
-                    int px = (dirX + width) % width;
-                    int py = (dirY + height) % height;
+                    int px = (dirX + mapConfig.width) % mapConfig.width;
+                    int py = (dirY + mapConfig.height) % mapConfig.height;
 
-                    if (dirX == x && dirY == y && !includeCurrentCell2)
+                    if (dirX == x && dirY == y && !mapConfig.includeCurrentCell2)
                     {
                         continue;
                     }
@@ -395,16 +385,16 @@ public class MapGenerator : MonoBehaviour
 
         else
         {
-            for (int dirX = x - radius2; dirX <= x + radius2; dirX++)
+            for (int dirX = x - mapConfig.radius2; dirX <= x + mapConfig.radius2; dirX++)
             {
-                for (int dirY = y - radius2; dirY <= y + radius2; dirY++)
+                for (int dirY = y - mapConfig.radius2; dirY <= y + mapConfig.radius2; dirY++)
                 {
-                    if (dirX < 0 || dirX >= width || dirY < 0 || dirY >= height)
+                    if (dirX < 0 || dirX >= mapConfig.width || dirY < 0 || dirY >= mapConfig.height)
                     {
                         amount++;
                         continue;
                     }
-                    if (dirX == x && dirY == y && !includeCurrentCell2)
+                    if (dirX == x && dirY == y && !mapConfig.includeCurrentCell2)
                     {
                         continue;
                     }
@@ -424,9 +414,9 @@ public class MapGenerator : MonoBehaviour
     {
         if (map != null)
         {
-            for (int x = 0; x <= width - 1; x++)
+            for (int x = 0; x <= mapConfig.width - 1; x++)
             {
-                for (int y = 0; y <= height - 1; y++)
+                for (int y = 0; y <= mapConfig.height - 1; y++)
                 {
                     //Gizmos.color = map[x, y] == 1 ? Color.black : Color.white;
                     switch (map[x, y])
@@ -448,7 +438,7 @@ public class MapGenerator : MonoBehaviour
                             break;
                     }
 
-                    Vector3 pos = new Vector3(x - width / 2 + .5f, y - height / 2 + .5f, 0);
+                    Vector3 pos = new Vector3(x - mapConfig.width / 2 + 0.5f, y - mapConfig.height / 2 + 0.5f, 0);
                     Gizmos.DrawCube(pos, Vector3.one);
                 }
             }
@@ -459,12 +449,12 @@ public class MapGenerator : MonoBehaviour
     {
         if (map != null)
         {
-            for (int x = 0; x <= width - 1; x++)
+            for (int x = 0; x <= mapConfig.width - 1; x++)
             {
-                for (int y = 0; y <= height - 1; y++)
+                for (int y = 0; y <= mapConfig.height - 1; y++)
                 {
                     //transform.position = new Vector3(x - width/2 + .5f, y - height/2 + .5f, 0);
-                    Vector3 position = new Vector3(x - width / 2 + .5f, y - height / 2 + .5f, 0);
+                    Vector3 position = new Vector3(x - mapConfig.width / 2 + 0.5f, y - mapConfig.height / 2 + 0.5f, 0);
                     if (map[x, y] == 1)
                     {
                         GameObject tile = Instantiate(wallPrefab, position, Quaternion.identity);
