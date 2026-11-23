@@ -42,7 +42,7 @@ public class MapGenerator : MonoBehaviour
             if (currentSteps == -1)
             {
                 InitializeMap();
-                DrawMap();
+                DrawMap(map);
                 currentSteps++;
                 Debug.Log("Initial grid rand value.");
             }
@@ -56,7 +56,7 @@ public class MapGenerator : MonoBehaviour
         {
             ClearMap();
             CreateMap();
-            DrawMap();
+            DrawMap(map);
             currentSteps = 100000000;
             currentSteps2 = 100000000;
             Debug.Log("Finish map\n");
@@ -198,7 +198,7 @@ public class MapGenerator : MonoBehaviour
             ClearMap();
             ExecuteRules();
 
-            DrawMap();
+            DrawMap(map);
 
             currentSteps++;
             Debug.Log("Step: " + currentSteps);
@@ -214,7 +214,7 @@ public class MapGenerator : MonoBehaviour
             ClearMap();
             ExecuteRules2();
 
-            DrawMap();
+            DrawMap(map);
 
             currentSteps++;
             Debug.Log("Step: " + currentSteps);
@@ -226,7 +226,7 @@ public class MapGenerator : MonoBehaviour
                 ClearMap();
                 ExecuteRules2();
 
-                DrawMap();
+                DrawMap(map);
 
                 currentSteps2++;
                 Debug.Log("Step: " + currentSteps);
@@ -445,23 +445,25 @@ public class MapGenerator : MonoBehaviour
         }
     }
 
-    public void DrawMap()
+    public void DrawMap(int[,]map)
     {
+        int width = map.GetLength(0);
+        int height = map.GetLength(1);
+
         if (map != null)
         {
-            for (int x = 0; x <= mapConfig.width - 1; x++)
+            for (int x = 0; x <= width - 1; x++)
             {
-                for (int y = 0; y <= mapConfig.height - 1; y++)
+                for (int y = 0; y <= height - 1; y++)
                 {
                     //transform.position = new Vector3(x - width/2 + .5f, y - height/2 + .5f, 0);
-                    Vector3 position = new Vector3(x - mapConfig.width / 2 + 0.5f, y - mapConfig.height / 2 + 0.5f, 0);
-                    if (map[x, y] == 1)
+                    Vector3 position = new Vector3(x - width / 2 + 0.5f, y - height / 2 + 0.5f, 0);
+                    if (map[x, y] == 1 || map[x, y] == 3)
                     {
                         GameObject tile = Instantiate(wallPrefab, position, Quaternion.identity);
                         tile.transform.SetParent(mapContainer.transform, true);
 
                     }
-
                 }
             }
         }
