@@ -14,11 +14,15 @@ public class AutomationTests : MonoBehaviour
     private Metrics metrics;
     private Rules rules;
 
+    private SaveController save;
+
     void Start()
     {
         mapGenerator = MapGenerator.Instance;
         metrics = Metrics.Instance;
         rules = Rules.Instance;
+
+        save = FindAnyObjectByType<SaveController>();
 
         metricsFilePath = "Assets/Results/metrics.csv";
         //File.WriteAllText(path, "id,ConnectivityScore,Openness/NarrownessScore,ComplexyScore\n");
@@ -27,12 +31,12 @@ public class AutomationTests : MonoBehaviour
     }
 
     private IEnumerator ReadConfigurations()
-    {   
+    {
         File.WriteAllText(metricsFilePath, "");
 
         ListDataMapConfig data = JsonUtility.FromJson<ListDataMapConfig>(configurationsFile.text);
 
-        foreach(DataMapConfig config in data.configurations)
+        foreach (DataMapConfig config in data.configurations)
         {
             mapGenerator.mapConfig.width = config.width;
             mapGenerator.mapConfig.height = config.height;
@@ -58,7 +62,7 @@ public class AutomationTests : MonoBehaviour
 
             mapGenerator.ClearMap();
             mapGenerator.CreateMap();
-            mapGenerator.DrawMap();
+            mapGenerator.DrawMap(mapGenerator.map);
 
             metrics.ConnectivityMetric(
                 mapGenerator.map,
@@ -81,9 +85,32 @@ public class AutomationTests : MonoBehaviour
             SaveImageMap(mapGenerator.map, config.width, config.height, ImageFilepath);
 
             string metricsResult = $"ID: {config.id}\nConnectivityScore: {metrics.connectivityScore}\nOpenness/NarrownessScore: {metrics.opennessScore}\nComplexyScore: {metrics.complexyScore}\n\n";
-            
+
             File.AppendAllText(metricsFilePath, metricsResult);
+
+            MapController mapController = new MapController();
+
+            if (mapController.ValidateMap(metrics.connectivityScore, metrics.opennessScore, metrics.complexyScore))
+            {
+                Debug.Log($"Validated map: {config.id}");
+                save.SaveMap(mapGenerator.map, config.id);
+            }
+            else
+                Debug.Log($"Invalidate map: {config.id}");
         }
+        int[,] mapValid = save.LoadMap();
+
+        if (mapValid != null)
+        {
+            mapGenerator.ClearMap();
+
+            //yield return null;
+
+            mapGenerator.map = mapValid;
+
+            mapGenerator.DrawMap(mapGenerator.map);
+        }
+
     }
 
     private void SaveImageMap(int[,] map, int width, int height, string pathImage)
